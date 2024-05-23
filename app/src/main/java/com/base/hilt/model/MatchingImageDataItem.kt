@@ -8,6 +8,7 @@ data class MatchingImageDataItem(
     var imgId: Int = 0,
     var imageBitmap: Bitmap? = null,
     var matchImageUri: Uri? = null,
+    var imagePath: String = "",
     var matchImageName: String = "",
     var imageDiffPerc: Double = 0.0,
     var isMatch: Boolean = false,

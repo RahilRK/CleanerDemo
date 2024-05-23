@@ -144,6 +144,16 @@ dependencies {
 //    implementation "androidx.work:work-runtime:2.8.0"
     implementation 'androidx.work:work-runtime-ktx:2.8.1'
 
+    //K Permission
+    // The core artifact.
+    implementation "com.github.fondesa:kpermissions:$kpermission"
+    // If you want the extensions for RxJava 2.
+    implementation "com.github.fondesa:kpermissions-rx2:$kpermission"
+    // If you want the extensions for RxJava 3.
+    implementation "com.github.fondesa:kpermissions-rx3:$kpermission"
+    // If you want the extensions for the Kotlin coroutines.
+    implementation "com.github.fondesa:kpermissions-coroutines:$kpermission"
+
 
     androidTestImplementation "androidx.test.ext:junit-ktx:1.1.3"
 

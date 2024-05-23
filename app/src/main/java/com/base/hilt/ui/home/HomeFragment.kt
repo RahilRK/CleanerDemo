@@ -1,7 +1,9 @@
 package com.base.hilt.ui.home
 
+import android.Manifest
 import android.content.ContentUris
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color.blue
 import android.graphics.Color.green
@@ -11,6 +13,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.provider.MediaStore.MediaColumns
+import android.provider.Settings
 import android.util.Log
 import android.view.View
 import android.widget.Toast
@@ -22,6 +25,7 @@ import androidx.work.Data
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
+import com.base.hilt.BuildConfig
 import com.base.hilt.R
 import com.base.hilt.base.FragmentBase
 import com.base.hilt.base.ToolbarModel
@@ -32,15 +36,23 @@ import com.base.hilt.model.MatchingImageDataItem
 import com.base.hilt.model.VideoDataItem
 import com.base.hilt.utils.Constants
 import com.base.hilt.utils.DebugLog
+import com.base.hilt.utils.FileUtils.getRealPathFromURI
 import com.base.hilt.utils.FileUtils.getVideoRealPathFromURI
 import com.base.hilt.worker.FindDuplicateImageWorker
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.fondesa.kpermissions.PermissionStatus
+import com.fondesa.kpermissions.allGranted
+import com.fondesa.kpermissions.anyPermanentlyDenied
+import com.fondesa.kpermissions.anyShouldShowRationale
+import com.fondesa.kpermissions.extension.permissionsBuilder
+import com.fondesa.kpermissions.request.PermissionRequest
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -55,13 +67,28 @@ import kotlin.system.measureTimeMillis
 
 
 @AndroidEntryPoint
-class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
+class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>(),
+    PermissionRequest.Listener {
 
     private val TAG = "HomeFragment"
 
     val mList: ArrayList<MatchingImageDataItem> = ArrayList()
     private val bitmapQuality = 25
     private val allImageScope = CoroutineScope(Dispatchers.IO)
+
+    private val requestPermission by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsBuilder(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO,
+            ).build()
+        } else {
+            permissionsBuilder(
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            ).build()
+        }
+    }
 
     override fun getLayoutId(): Int {
         return R.layout.fragment_home
@@ -81,12 +108,14 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 
     override fun initializeScreenVariables() {
 
+        askPermission()
         observeData()
-//        getAllImages()
-//        getAllScreenShotImages()
-        getAllScreenRecording()
+    }
 
-//        startWorker()
+    private fun askPermission() {
+
+        requestPermission.addListener(this)
+        requestPermission.send()
     }
 
     private fun observeData() {
@@ -100,7 +129,6 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 
         viewModel.matchImagesList.observe(this) { mImageList ->
 
-            DebugLog.d(TAG, "observeData: matchImagesList mImageList size ${mImageList.size}")
             if (mList.size == mImageList.size) {
                 DebugLog.d(TAG, "observeData: matchImagesList Total: ${mImageList.size}")
                 findDuplicateImages(mImageList)
@@ -114,7 +142,13 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 
         viewModel.measureProcessTime.observe(this) { mTime ->
 
-            dataBinding.txtViewTime.text = "Total images ${viewModel.imagesList.value?.size} scanned in $mTime sec"
+            dataBinding.txtViewTime.text =
+                "Total images ${viewModel.imagesList.value?.size} scanned in $mTime sec"
+        }
+
+        viewModel.screenShotList.observe(this) { mList ->
+
+            loadScreenShotImages(arrayList = mList as ArrayList<MatchingImageDataItem>)
         }
 
         viewModel.screenRecordingList.observe(this) { mList ->
@@ -127,14 +161,17 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
     private fun getAllImages() {
 
         var imgId = 0
+        var totalImages = 0
         try {
             val allImagesJob = allImageScope.launch {
 
                 val measureTime = measureTimeMillis {
 
                     try {
-                        dataBinding.progressBar.visibility = View.VISIBLE
-                        dataBinding.textView.visibility = View.VISIBLE
+                        withContext(Dispatchers.Main) {
+                            dataBinding.progressBar.visibility = View.VISIBLE
+                            dataBinding.textView.visibility = View.VISIBLE
+                        }
 
                         DebugLog.d(TAG, "Scanning starts...")
                         DebugLog.d(TAG, "getAllImages: allImagesJob starts...")
@@ -162,7 +199,7 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
                             null,
 //                            selectionArgs,
                             null,
-                            imageSortOrder
+                            null
                         )
                         ;
 
@@ -185,7 +222,6 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 //                                    val dateTaken = it.getString(dateTakenColumn)
 
                                     imgId++
-//                                    DebugLog.d(TAG, "imgId: $imgId")
                                     val contentUri = ContentUris.withAppendedId(
                                         MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                                         id
@@ -193,17 +229,18 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 
                                     //breaker
 //                                    val hashValue = calculateMD5(requireActivity(), contentUri)
+//                                    val getRealPath = getRealPathFromURI(requireActivity(), contentUri)
                                     matchingImageDataItem = MatchingImageDataItem(
                                         imgId = imgId,
 //                                        imageBitmap = mBitmap,
                                         matchImageUri = contentUri,
-//                                            matchImageName = getRealPath ?: "",
+//                                        imagePath = getRealPath ?: "",
 //                                        hashValue = hashValue!!
                                     )
 
+                                    DebugLog.d(TAG, "matchingImageDataItem: $matchingImageDataItem")
                                     mList.add(matchingImageDataItem)
 
-//                                    val getRealPath = getRealPathFromURI(requireActivity(), contentUri)
 //                                    val bitmap: Bitmap? = uriToBitmap(requireActivity(), contentUri)
                                     /*
                                                                         bitmap?.let { mBitmap ->
@@ -230,6 +267,8 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 //                                getMetaData(contentUri, matchingImageDataItem)
                                 }
                             }
+
+                            totalImages = cursor.count
                             cursor.close()
                         }
 
@@ -243,7 +282,7 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 
                 DebugLog.d(TAG, "getAllImages: measureTime: $measureTime")
                 val seconds: Long = TimeUnit.MILLISECONDS.toSeconds(measureTime)
-                dataBinding.txtViewTime.text = "Total images $imgId scanned in $seconds sec"
+                dataBinding.txtViewTime.text = "Total images $totalImages scanned in $seconds sec"
             }
 
             allImagesJob.invokeOnCompletion {
@@ -628,20 +667,20 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 
     private fun getAllScreenShotImages() {
 
-        var imageNumber = 1
         try {
             val allImagesJob = allImageScope.launch {
 
                 val measureTime = measureTimeMillis {
 
                     try {
-                        dataBinding.progressBar.visibility = View.VISIBLE
-                        dataBinding.textView.visibility = View.VISIBLE
+                        withContext(Dispatchers.Main) {
+                            dataBinding.progressBar.visibility = View.VISIBLE
+                            dataBinding.textView.visibility = View.VISIBLE
+                        }
 
-                        DebugLog.d(TAG, "Scanning starts...")
-                        DebugLog.d(TAG, "getAllImages: allImagesJob starts...")
+                        DebugLog.d(TAG, "getAllScreenShotImages: Job starts...")
 
-                        var matchingImageDataItem = MatchingImageDataItem()
+                        var matchingImageDataItem: MatchingImageDataItem
 
                         val imageProjection = arrayOf(
                             MediaStore.Images.Media._ID,
@@ -653,8 +692,8 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
                         val selection =
                             "${MediaColumns.RELATIVE_PATH} LIKE ? OR ${MediaColumns.RELATIVE_PATH} LIKE ?"
                         val selectionArgs = arrayOf(
-                            "Pictures/Screenshots%",
-                            "DCIM/Screenshots%"
+                            "%Pictures/Screenshots%",
+                            "%DCIM/Screenshots%"
                         )
 
                         val cursor = requireActivity().contentResolver?.query(
@@ -674,7 +713,6 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 //                                val sizeColumn = it.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
 //                                val dateTakenColumn = it.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
 
-                                DebugLog.d(TAG, "getAllImages Total images: ${cursor.count}")
 
                                 while (cursor.moveToNext()) {
 
@@ -683,69 +721,45 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 //                                    val size = it.getString(sizeColumn)
 //                                    val dateTaken = it.getString(dateTakenColumn)
 
-                                    imageNumber++
-                                    DebugLog.d(TAG, "imageNumber: $imageNumber")
                                     val contentUri = ContentUris.withAppendedId(
                                         MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                                         id
                                     )
-//                                    val hashValue = calculateMD5(requireActivity(), contentUri)
+                                    val getRealPath =
+                                        getRealPathFromURI(requireActivity(), contentUri)
                                     matchingImageDataItem = MatchingImageDataItem(
 //                                        imageBitmap = mBitmap,
                                         matchImageUri = contentUri,
-//                                            matchImageName = getRealPath ?: "",
-//                                        hashValue = hashValue!!
+                                        imagePath = getRealPath ?: ""
                                     )
 
                                     mList.add(matchingImageDataItem)
-
-//                                    val getRealPath = getRealPathFromURI(requireActivity(), contentUri)
-//                                    val bitmap: Bitmap? = uriToBitmap(requireActivity(), contentUri)
-                                    /*
-                                                                        bitmap?.let { mBitmap ->
-
-                                                                            val hashValue = sampleHashFile(mBitmap)
-
-                                                                            matchingImageDataItem = MatchingImageDataItem(
-                                                                                imageBitmap = mBitmap,
-                                                                                matchImageUri = contentUri,
-                                    //                                            matchImageName = getRealPath ?: "",
-                                                                                hashValue = hashValue
-                                                                            )
-
-                                                                            mList.add(matchingImageDataItem)
-                                                                            DebugLog.d(TAG, "getAllImages matchingImageDataItem: $matchingImageDataItem")
-
-                                                                        } ?: kotlin.run {
-
-                                    //                                Toast.makeText(activity, "Bitmap is null!", Toast.LENGTH_SHORT).show()
-                                                                            DebugLog.e(TAG, "getAllImages: Bitmap is null!")
-                                                                        }
-                                    */
-
-//                                getMetaData(contentUri, matchingImageDataItem)
+                                    DebugLog.d(
+                                        TAG,
+                                        "getAllScreenShotImages: $matchingImageDataItem"
+                                    )
                                 }
                             }
+                            dataBinding.txtViewTime.text = "Total screenshot: ${cursor.count}"
                             cursor.close()
                         }
 
                     } catch (e: Exception) {
 
                         val error = Log.getStackTraceString(e)
-                        DebugLog.d(TAG, "getAllImages error: $error")
+                        DebugLog.d(TAG, "getAllScreenShotImages Exception: $error")
 //                Toast.makeText(activity, "Error in getting getAllImages", Toast.LENGTH_SHORT).show()
                     }
                 }
 
-                DebugLog.d(TAG, "getAllImages: measureTime: $measureTime")
+                DebugLog.d(TAG, "getAllScreenShotImages: measureTime: $measureTime")
                 val seconds: Long = TimeUnit.MILLISECONDS.toSeconds(measureTime)
-                dataBinding.txtViewTime.text = "Total images $imageNumber scanned in $seconds sec"
             }
 
             allImagesJob.invokeOnCompletion {
 
-                viewModel.addImagesToList(mList)
-                DebugLog.d(TAG, "getAllImages: allImagesJob Done...")
+                viewModel.addScreenShotToList(mList)
+                DebugLog.d(TAG, "getAllScreenShotImages: Job Done...")
                 allImageScope.launch(Dispatchers.Main) {
                     dataBinding.progressBar.visibility = View.GONE
                     dataBinding.textView.visibility = View.GONE
@@ -755,11 +769,11 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
         } catch (e: Exception) {
 
             val error = Log.getStackTraceString(e)
-            DebugLog.d(TAG, "getAllImages job error: $error")
+            DebugLog.d(TAG, "getAllScreenShotImages job error: $error")
         } catch (e: TimeoutException) {
 
             val error = Log.getStackTraceString(e)
-            DebugLog.d(TAG, "getAllImages job TimeoutException: $error")
+            DebugLog.d(TAG, "getAllScreenShotImages job TimeoutException: $error")
         }
     }
 
@@ -772,8 +786,10 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 
                     try {
                         var videoDataItem: VideoDataItem
-                        dataBinding.progressBar.visibility = View.VISIBLE
-                        dataBinding.textView.visibility = View.VISIBLE
+                        withContext(Dispatchers.Main) {
+                            dataBinding.progressBar.visibility = View.VISIBLE
+                            dataBinding.textView.visibility = View.VISIBLE
+                        }
 
                         DebugLog.d(TAG, "Scanning starts...")
                         DebugLog.d(TAG, "getAllScreenRecording: Job starts...")
@@ -800,7 +816,8 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
                         val selectionArgs = arrayOf(
                             "%screen%",
                             "%screencast%",
-                            "%record%")
+                            "%record%"
+                        )
 
                         val orderBy = "${MediaStore.Video.Media.DATE_ADDED} DESC"
 
@@ -848,8 +865,12 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
                                     val SIZE = cursor.getString(SIZE)
                                     val DISPLAY_NAME = cursor.getString(DISPLAY_NAME)
 
-                                    val contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
-                                    val getRealPath = getVideoRealPathFromURI(requireActivity(), contentUri)
+                                    val contentUri = ContentUris.withAppendedId(
+                                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                                        id
+                                    )
+                                    val getRealPath =
+                                        getVideoRealPathFromURI(requireActivity(), contentUri)
                                     videoDataItem = VideoDataItem(
                                         _ID = _ID,
                                         TITLE = TITLE,
@@ -863,7 +884,10 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
 
                                     viewModel.addScreenRecordingToList(videoDataItem)
 //                                    getVideoMetaData(contentUri = contentUri, videoDataItem)
-                                    DebugLog.d(TAG, "getAllScreenRecording videoDataItem: $videoDataItem")
+                                    DebugLog.d(
+                                        TAG,
+                                        "getAllScreenRecording videoDataItem: $videoDataItem"
+                                    )
                                 }
                             }
                             cursor.close()
@@ -961,6 +985,44 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
         } finally {
             // Release the MediaMetadataRetriever
             retriever.release()
+        }
+    }
+
+    private fun loadScreenShotImages(arrayList: ArrayList<MatchingImageDataItem>) {
+
+        val mAdapter = object :
+            GenericRecyclerViewAdapter<MatchingImageDataItem, MatchingImageListItemBinding>(
+                requireContext(),
+                arrayList
+            ) {
+            override val layoutResId: Int
+                get() = R.layout.matching_image_list_item
+
+            override fun onBindData(
+                model: MatchingImageDataItem,
+                position: Int,
+                dataBinding: MatchingImageListItemBinding
+            ) {
+//                dataBinding.model = model
+                Glide.with(requireActivity())
+                    .load(model.matchImageUri)
+                    .transform(CenterCrop(), RoundedCorners(8))
+                    .into(dataBinding.imageViewMatch)
+
+//                dataBinding.textViewMatch.text = "index: $position, diff: ${model.imageDiffPerc.toInt()}"
+                dataBinding.textViewMatch.text = model.imagePath
+
+                dataBinding.executePendingBindings()
+            }
+
+            override fun onItemClick(model: MatchingImageDataItem, position: Int) {
+
+            }
+        }
+
+        dataBinding.rvList.apply {
+            adapter = mAdapter
+            layoutManager = GridLayoutManager(requireActivity(), 2)
         }
     }
 
@@ -1287,5 +1349,31 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>() {
             // There are 255 values of pixels in total
             return avg_different_pixels / 255 * 100
         }
+    }
+
+    override fun onPermissionsResult(result: List<PermissionStatus>) {
+
+        if (result.anyShouldShowRationale()) {
+
+            Toast.makeText(activity, "Storage permission required", Toast.LENGTH_SHORT).show()
+
+        } else if (result.allGranted()) {
+
+            getAllImages()
+//            getAllScreenShotImages()
+//            getAllScreenRecording()
+//            startWorker()
+
+        } else if (result.anyPermanentlyDenied()) {
+
+            Toast.makeText(activity, "Please allow storage permission", Toast.LENGTH_SHORT).show()
+
+            val intent = Intent().apply {
+                action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                data = Uri.fromParts("package", BuildConfig.APPLICATION_ID, null)
+            }
+            startActivity(intent)
+        }
+
     }
 }

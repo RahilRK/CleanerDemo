@@ -99,6 +99,23 @@ class HomeViewModel @Inject constructor(private val homeRepository: HomeReposito
         _measureProcessTime.postValue(mTime)
     }
 
+    /*todo all screenshot*/
+    private val _screenShotList =
+        MutableLiveData<MutableList<MatchingImageDataItem>>(arrayListOf())
+    val screenShotList: LiveData<MutableList<MatchingImageDataItem>>
+        get() = _screenShotList
+
+    fun addScreenShotToList(model: MatchingImageDataItem = MatchingImageDataItem()) {
+
+        _screenShotList.value?.add(model)
+//        _imagesList.postValue(_imagesList.value)
+    }
+
+    fun addScreenShotToList(mList: MutableList<MatchingImageDataItem> = arrayListOf()) {
+
+        _screenShotList.postValue(mList)
+    }
+
     /*todo all screen recording*/
     private val _screenRecordingList =
         MutableLiveData<MutableList<VideoDataItem>>(arrayListOf())
@@ -108,6 +125,5 @@ class HomeViewModel @Inject constructor(private val homeRepository: HomeReposito
     fun addScreenRecordingToList(model: VideoDataItem = VideoDataItem()) {
 
         _screenRecordingList.value?.add(model)
-//        _imagesList.postValue(_imagesList.value)
     }
 }
