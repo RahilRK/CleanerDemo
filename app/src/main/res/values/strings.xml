@@ -1,0 +1,58 @@
+<resources>
+    <string name="app_name">Cleaner demo</string>
+    <string name="title_home">Home</string>
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_datastore">Datastore</string>
+    <string name="title_notifications">Notifications</string>
+    <string name="title_language">Change Language</string>
+    <string name="lbl_ok">OK</string>
+    <string name="lbl_yes">Yes</string>
+    <string name="lbl_no">No</string>
+    <string name="lbl_cancel">Cancel</string>
+    <string name="lbl_done">Done</string>
+    <string name="socket_time_out">Sorry, Unable to connect server. Please try again</string>
+    <string name="internal_server_error_500">Oops!! There is some problem with request. Please try again</string>
+    <string name="logout_401">You have been logged out because you signed in on another device OR your account is inactive</string>
+    <string name="no_internet">No Internet Connection</string>
+    <string name="title_toolbar">Toolbar</string>
+
+    <string name="store_secure_data">Store secure</string>
+    <string name="fetched_secured_data">Fetch secured</string>
+    <string name="store_data">Store</string>
+    <string name="fetch_data">Fetch</string>
+
+    <string name="login">Login</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="sign_in">Sign In</string>
+
+
+    <!--Validations-->
+    <string name="alert_enter_email">Please enter email address</string>
+    <string name="alert_enter_password">Please enter password</string>
+    <string name="alert_enter_old_password">Please enter old password</string>
+    <string name="alert_enter_valid_email">Please enter valid email address</string>
+    <string name="alert_enter_name">Please enter name</string>
+    <string name="alert_enter_mobile">Please enter Mobile number</string>
+    <string name="alert_enter_valid_mobile">Please enter valid mobile number</string>
+    <string name="alert_enter_valid_password">Please enter valid password</string>
+    <string name="alert_enter_valid_old_password">Please enter valid old password</string>
+    <string name="space_not_allowed">Space not allowed in password</string>
+    <string name="alert_password_compare">New password and confirm password does not match</string>
+    <string name="alert_enter_firstname">Please enter first name</string>
+    <string name="alert_enter_valid_firstname">First name should have atleast 2 characters</string>
+    <string name="alert_enter_lastname">Please enter last name</string>
+    <string name="alert_enter_valid_lastname">Last name should have atleast 2 characters</string>
+    <string name="alert_enter_confirm_password">Please enter confirm password</string>
+    <string name="alert_enter_valid_confirm_password">Please enter valid confirm password</string>
+    <string name="label_login_successfully">Login Successfully</string>
+    <string name="label_change_pass_successfully">Password Change Successfully</string>
+    <string name="label_login_error">Login Error</string>
+    <string name="label_change_pass_error">Password Change Error</string>
+
+    <string name="label_confirm_new_password">Confirm password</string>
+    <string name="label_reset_password">Reset Password</string>
+    <string name="label_change_password">Change Password</string>
+    <string name="label_new_password">New password</string>
+    <string name="label_old_password">Old password</string>
+</resources>
