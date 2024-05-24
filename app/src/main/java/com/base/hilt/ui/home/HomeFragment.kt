@@ -72,7 +72,7 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>(),
 
     private val TAG = "HomeFragment"
 
-    val mList: ArrayList<MatchingImageDataItem> = ArrayList()
+    private val mList: ArrayList<MatchingImageDataItem> = ArrayList()
     private val bitmapQuality = 25
     private val allImageScope = CoroutineScope(Dispatchers.IO)
 
@@ -120,39 +120,43 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>(),
 
     private fun observeData() {
 
+        /*todo all images without hash*/
         viewModel.imagesList.observe(this) { mImageList ->
 
-//            DebugLog.d(TAG, "observeData: imagesList Total ${mImageList.size}")
+            DebugLog.d(TAG, "observeData: imagesList Total ${mImageList.size}")
             createArrayChunk(mImageList)
-//            findDuplicateImages(mImageList)
         }
 
-        viewModel.matchImagesList.observe(this) { mImageList ->
+        /*todo all images with hash*/
+        viewModel.hashImagesList.observe(this) { mImageList ->
 
+//            DebugLog.d(TAG, "observeData: matchImagesList Total: ${mImageList.size}")
             if (mList.size == mImageList.size) {
-                DebugLog.d(TAG, "observeData: matchImagesList Total: ${mImageList.size}")
                 findDuplicateImages(mImageList)
             }
         }
 
+        /*todo only duplicate images*/
         viewModel.duplicateImagesList.observe(this) { mDuplicateImagesList ->
 
             loadDuplicateImages(arrayList = mDuplicateImagesList as ArrayList<MatchingImageDataItem>)
         }
 
+        /*todo measure job time to scan all duplicate images*/
         viewModel.measureProcessTime.observe(this) { mTime ->
 
-            dataBinding.txtViewTime.text =
-                "Total images ${viewModel.imagesList.value?.size} scanned in $mTime sec"
+            dataBinding.txtViewTime.text = "Total images ${viewModel.imagesList.value?.size} scanned in $mTime sec"
         }
 
         viewModel.screenShotList.observe(this) { mList ->
 
+            DebugLog.d(TAG, "observeData: screenShotList Total ${mList.size}")
             loadScreenShotImages(arrayList = mList as ArrayList<MatchingImageDataItem>)
         }
 
         viewModel.screenRecordingList.observe(this) { mList ->
 
+            DebugLog.d(TAG, "observeData: screenRecordingList Total ${mList.size}")
             loadScreenRecordingVideos(arrayList = mList as ArrayList<VideoDataItem>)
         }
     }
@@ -161,128 +165,78 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>(),
     private fun getAllImages() {
 
         var imgId = 0
-        var totalImages = 0
+
         try {
             val allImagesJob = allImageScope.launch {
 
-                val measureTime = measureTimeMillis {
+                try {
+                    withContext(Dispatchers.Main) {
+                        dataBinding.progressBar.visibility = View.VISIBLE
+                        dataBinding.textView.visibility = View.VISIBLE
+                    }
 
-                    try {
-                        withContext(Dispatchers.Main) {
-                            dataBinding.progressBar.visibility = View.VISIBLE
-                            dataBinding.textView.visibility = View.VISIBLE
-                        }
+                    DebugLog.d(TAG, "Scanning starts...")
+                    DebugLog.d(TAG, "getAllImages: allImagesJob starts...")
 
-                        DebugLog.d(TAG, "Scanning starts...")
-                        DebugLog.d(TAG, "getAllImages: allImagesJob starts...")
+                    var matchingImageDataItem: MatchingImageDataItem
 
-                        var matchingImageDataItem = MatchingImageDataItem()
+                    val imageProjection = arrayOf(
+                        MediaStore.Images.Media._ID,
+                        MediaStore.Images.Media.DISPLAY_NAME,
+                        MediaStore.Images.Media.SIZE,
+                        MediaStore.Images.Media.DATE_TAKEN,
+                    )
 
-                        val imageProjection = arrayOf(
-                            MediaStore.Images.Media._ID,
-                            MediaStore.Images.Media.DISPLAY_NAME,
-                            MediaStore.Images.Media.SIZE,
-                            MediaStore.Images.Media.DATE_TAKEN,
-                        )
-
-                        val imageSortOrder = "${MediaStore.Images.Media.DATE_TAKEN} DESC"
+                    val imageSortOrder = "${MediaStore.Images.Media.DATE_TAKEN} DESC"
 //                        val selection = "${MediaColumns.RELATIVE_PATH} LIKE ?"
 //                        val selectionArgs = arrayOf("Download/My images 1%")
 //                        val selectionArgs = arrayOf("Download/My images 2%")
 //                        val selectionArgs = arrayOf("Download/My images 3%")
 //                        val selectionArgs = arrayOf("Download/Quick Share%")
 
-                        val cursor = requireActivity().contentResolver?.query(
-                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                            imageProjection,
+                    requireActivity().contentResolver?.query(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        imageProjection,
 //                            selection,
-                            null,
+                        null,
 //                            selectionArgs,
-                            null,
-                            null
-                        )
-                        ;
+                        null,
+                        null
+                    )?.use { cursor ->
 
-                        if (cursor != null) {
-                            if (cursor.moveToFirst()) {
-                                ///// Put your idea here
-                                val idColumn =
-                                    cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-//                                val nameColumn = it.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-//                                val sizeColumn = it.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
-//                                val dateTakenColumn = it.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
+                        DebugLog.d(TAG, "getAllImages Total images: ${cursor.count}")
 
-                                DebugLog.d(TAG, "getAllImages Total images: ${cursor.count}")
+                        val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+                        val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
+                        val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
+                        val dateTakenColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
 
-                                while (cursor.moveToNext()) {
+                        while (cursor.moveToNext()) {
 
-                                    val id = cursor.getLong(idColumn)
+                            val id = cursor.getLong(idColumn)
 //                                    val name = it.getString(nameColumn)
 //                                    val size = it.getString(sizeColumn)
 //                                    val dateTaken = it.getString(dateTakenColumn)
 
-                                    imgId++
-                                    val contentUri = ContentUris.withAppendedId(
-                                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                                        id
-                                    )
+                            val contentUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+                            matchingImageDataItem = MatchingImageDataItem(
+                                imgId = imgId++,
+                                matchImageUri = contentUri,
+                            )
 
-                                    //breaker
-//                                    val hashValue = calculateMD5(requireActivity(), contentUri)
-//                                    val getRealPath = getRealPathFromURI(requireActivity(), contentUri)
-                                    matchingImageDataItem = MatchingImageDataItem(
-                                        imgId = imgId,
-//                                        imageBitmap = mBitmap,
-                                        matchImageUri = contentUri,
-//                                        imagePath = getRealPath ?: "",
-//                                        hashValue = hashValue!!
-                                    )
-
-                                    DebugLog.d(TAG, "matchingImageDataItem: $matchingImageDataItem")
-                                    mList.add(matchingImageDataItem)
-
-//                                    val bitmap: Bitmap? = uriToBitmap(requireActivity(), contentUri)
-                                    /*
-                                                                        bitmap?.let { mBitmap ->
-
-                                                                            val hashValue = sampleHashFile(mBitmap)
-
-                                                                            matchingImageDataItem = MatchingImageDataItem(
-                                                                                imageBitmap = mBitmap,
-                                                                                matchImageUri = contentUri,
-                                    //                                            matchImageName = getRealPath ?: "",
-                                                                                hashValue = hashValue
-                                                                            )
-
-                                                                            mList.add(matchingImageDataItem)
-                                                                            DebugLog.d(TAG, "getAllImages matchingImageDataItem: $matchingImageDataItem")
-
-                                                                        } ?: kotlin.run {
-
-                                    //                                Toast.makeText(activity, "Bitmap is null!", Toast.LENGTH_SHORT).show()
-                                                                            DebugLog.e(TAG, "getAllImages: Bitmap is null!")
-                                                                        }
-                                    */
-
-//                                getMetaData(contentUri, matchingImageDataItem)
-                                }
-                            }
-
-                            totalImages = cursor.count
-                            cursor.close()
+                            DebugLog.d(TAG, "matchingImageDataItem: $matchingImageDataItem")
+                            mList.add(matchingImageDataItem)
                         }
 
-                    } catch (e: Exception) {
-
-                        val error = Log.getStackTraceString(e)
-                        DebugLog.d(TAG, "getAllImages Exception: $error")
-//                Toast.makeText(activity, "Error in getting getAllImages", Toast.LENGTH_SHORT).show()
+                        cursor.close()
                     }
-                }
 
-                DebugLog.d(TAG, "getAllImages: measureTime: $measureTime")
-                val seconds: Long = TimeUnit.MILLISECONDS.toSeconds(measureTime)
-                dataBinding.txtViewTime.text = "Total images $totalImages scanned in $seconds sec"
+                } catch (e: Exception) {
+
+                    val error = Log.getStackTraceString(e)
+                    DebugLog.d(TAG, "getAllImages Exception: $error")
+//                Toast.makeText(activity, "Error in getting getAllImages", Toast.LENGTH_SHORT).show()
+                }
             }
 
             allImagesJob.invokeOnCompletion {
@@ -360,7 +314,7 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>(),
                 chunkJob.invokeOnCompletion {
 
                     mMyList.addAll(chunkArrayList)
-                    viewModel.addMatchingImagesToList(mMyList)
+                    viewModel.addHashImagesToList(mMyList)
                     DebugLog.d(
                         TAG,
                         "createArrayChunk job completed ${chunkArrayList[0].imgId}...${chunkArrayList[chunkArrayList.size - 1].imgId}"
@@ -696,54 +650,48 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>(),
                             "%DCIM/Screenshots%"
                         )
 
-                        val cursor = requireActivity().contentResolver?.query(
+                        requireActivity().contentResolver?.query(
                             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                             imageProjection,
                             selection,
                             selectionArgs,
                             null
-                        )
+                        )?.use {cursor->
 
-                        if (cursor != null) {
-                            if (cursor.moveToFirst()) {
-                                ///// Put your idea here
-                                val idColumn =
-                                    cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-//                                val nameColumn = it.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-//                                val sizeColumn = it.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
-//                                val dateTakenColumn = it.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
+                            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+                            while (cursor.moveToNext()) {
 
-
-                                while (cursor.moveToNext()) {
-
-                                    val id = cursor.getLong(idColumn)
+                                DebugLog.d(
+                                    TAG,
+                                    "getAllScreenShotImages: Total: ${cursor.count}"
+                                )
+                                val id = cursor.getLong(idColumn)
 //                                    val name = it.getString(nameColumn)
 //                                    val size = it.getString(sizeColumn)
 //                                    val dateTaken = it.getString(dateTakenColumn)
 
-                                    val contentUri = ContentUris.withAppendedId(
-                                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                                        id
-                                    )
-                                    val getRealPath =
-                                        getRealPathFromURI(requireActivity(), contentUri)
-                                    matchingImageDataItem = MatchingImageDataItem(
+                                val contentUri = ContentUris.withAppendedId(
+                                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                    id
+                                )
+                                val getRealPath =
+                                    getRealPathFromURI(requireActivity(), contentUri)
+                                matchingImageDataItem = MatchingImageDataItem(
 //                                        imageBitmap = mBitmap,
-                                        matchImageUri = contentUri,
-                                        imagePath = getRealPath ?: ""
-                                    )
+                                    matchImageUri = contentUri,
+                                    imagePath = getRealPath ?: ""
+                                )
 
-                                    mList.add(matchingImageDataItem)
-                                    DebugLog.d(
-                                        TAG,
-                                        "getAllScreenShotImages: $matchingImageDataItem"
-                                    )
-                                }
+                                mList.add(matchingImageDataItem)
+                                DebugLog.d(
+                                    TAG,
+                                    "getAllScreenShotImages: $matchingImageDataItem"
+                                )
                             }
+
                             dataBinding.txtViewTime.text = "Total screenshot: ${cursor.count}"
                             cursor.close()
                         }
-
                     } catch (e: Exception) {
 
                         val error = Log.getStackTraceString(e)
@@ -821,7 +769,7 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>(),
 
                         val orderBy = "${MediaStore.Video.Media.DATE_ADDED} DESC"
 
-                        val cursor = requireActivity().contentResolver?.query(
+                        requireActivity().contentResolver?.query(
                             uri,
                             null,
                             selection,
@@ -829,67 +777,62 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>(),
                             selectionArgs,
 //                            null,
                             orderBy
-                        )
+                        )?.use {cursor->
 
-                        if (cursor != null) {
-                            if (cursor.moveToFirst()) {
-                                ///// Put your idea here
-                                val _ID = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
-                                val TITLE =
-                                    cursor.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE)
-                                val DATA = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
-                                val BUCKET_DISPLAY_NAME =
-                                    cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
-                                val DATE_ADDED =
-                                    cursor.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.DATE_ADDED)
-                                val DURATION =
-                                    cursor.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.DURATION)
-                                val SIZE =
-                                    cursor.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.SIZE)
-                                val DISPLAY_NAME =
-                                    cursor.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.DISPLAY_NAME)
+                            DebugLog.d(TAG, "getAllScreenRecording Total: ${cursor.count}"
+                            )
+                            val _ID = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                            val TITLE =
+                                cursor.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE)
+                            val DATA = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
+                            val BUCKET_DISPLAY_NAME =
+                                cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
+                            val DATE_ADDED =
+                                cursor.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.DATE_ADDED)
+                            val DURATION =
+                                cursor.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.DURATION)
+                            val SIZE =
+                                cursor.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.SIZE)
+                            val DISPLAY_NAME =
+                                cursor.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.DISPLAY_NAME)
 
-                                DebugLog.d(
-                                    TAG,
-                                    "getAllScreenRecording Total screen recording: ${cursor.count}"
+                            while (cursor.moveToNext()) {
+
+                                val id = cursor.getLong(_ID)
+                                val TITLE = cursor.getString(TITLE)
+                                val DATA = Uri.parse(cursor.getString(DATA))
+                                val BUCKET_DISPLAY_NAME = cursor.getString(BUCKET_DISPLAY_NAME)
+                                val DATE_ADDED = cursor.getString(DATE_ADDED)
+                                val DURATION = cursor.getString(DURATION)
+                                val SIZE = cursor.getString(SIZE)
+                                val DISPLAY_NAME = cursor.getString(DISPLAY_NAME)
+
+                                val contentUri = ContentUris.withAppendedId(
+                                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                                    id
+                                )
+                                val getRealPath =
+                                    getVideoRealPathFromURI(requireActivity(), contentUri)
+                                videoDataItem = VideoDataItem(
+                                    _ID = _ID,
+                                    TITLE = TITLE,
+                                    DATA = DATA,
+                                    BUCKET_DISPLAY_NAME = BUCKET_DISPLAY_NAME,
+                                    DISPLAY_NAME = DISPLAY_NAME,
+                                    videoPath = getRealPath,
+                                    contentUri = contentUri,
+                                    DURATION = timeConversion(DURATION.toLong()),
                                 )
 
-                                while (cursor.moveToNext()) {
-
-                                    val id = cursor.getLong(_ID)
-                                    val TITLE = cursor.getString(TITLE)
-                                    val DATA = Uri.parse(cursor.getString(DATA))
-                                    val BUCKET_DISPLAY_NAME = cursor.getString(BUCKET_DISPLAY_NAME)
-                                    val DATE_ADDED = cursor.getString(DATE_ADDED)
-                                    val DURATION = cursor.getString(DURATION)
-                                    val SIZE = cursor.getString(SIZE)
-                                    val DISPLAY_NAME = cursor.getString(DISPLAY_NAME)
-
-                                    val contentUri = ContentUris.withAppendedId(
-                                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                                        id
-                                    )
-                                    val getRealPath =
-                                        getVideoRealPathFromURI(requireActivity(), contentUri)
-                                    videoDataItem = VideoDataItem(
-                                        _ID = _ID,
-                                        TITLE = TITLE,
-                                        DATA = DATA,
-                                        BUCKET_DISPLAY_NAME = BUCKET_DISPLAY_NAME,
-                                        DISPLAY_NAME = DISPLAY_NAME,
-                                        videoPath = getRealPath,
-                                        contentUri = contentUri,
-                                        DURATION = timeConversion(DURATION.toLong()),
-                                    )
-
-                                    viewModel.addScreenRecordingToList(videoDataItem)
+                                viewModel.addScreenRecordingToList(videoDataItem)
 //                                    getVideoMetaData(contentUri = contentUri, videoDataItem)
-                                    DebugLog.d(
-                                        TAG,
-                                        "getAllScreenRecording videoDataItem: $videoDataItem"
-                                    )
-                                }
+                                DebugLog.d(
+                                    TAG,
+                                    "getAllScreenRecording videoDataItem: $videoDataItem"
+                                )
                             }
+
+                            dataBinding.txtViewTime.text = "Total screen-recording: ${cursor.count}"
                             cursor.close()
                         }
 
@@ -1359,9 +1302,9 @@ class HomeFragment : FragmentBase<HomeViewModel, FragmentHomeBinding>(),
 
         } else if (result.allGranted()) {
 
-            getAllImages()
+//            getAllImages()
 //            getAllScreenShotImages()
-//            getAllScreenRecording()
+            getAllScreenRecording()
 //            startWorker()
 
         } else if (result.anyPermanentlyDenied()) {

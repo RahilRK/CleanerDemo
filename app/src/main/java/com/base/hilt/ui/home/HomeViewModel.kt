@@ -1,7 +1,5 @@
 package com.base.hilt.ui.home
 
-import android.graphics.Bitmap
-import android.net.Uri
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
@@ -37,7 +35,7 @@ class HomeViewModel @Inject constructor(private val homeRepository: HomeReposito
         }
     }
 
-    /*todo all images meta-data*/
+    /*todo all images*/
     private val _imagesList =
         MutableLiveData<MutableList<MatchingImageDataItem>>(arrayListOf())
     val imagesList: LiveData<MutableList<MatchingImageDataItem>>
@@ -51,29 +49,20 @@ class HomeViewModel @Inject constructor(private val homeRepository: HomeReposito
     fun addImagesToList(model: MatchingImageDataItem = MatchingImageDataItem()) {
 
         _imagesList.value?.add(model)
-//        _imagesList.postValue(_imagesList.value)
     }
 
-    fun clearImageList() {
-        _imagesList.postValue(arrayListOf())
-    }
-
-    /*todo match images*/
-    private val _matchImagesList =
+    /*todo hash images*/
+    private val _hashImagesList =
         MutableLiveData<MutableList<MatchingImageDataItem>>(arrayListOf())
-    val matchImagesList: LiveData<MutableList<MatchingImageDataItem>>
-        get() = _matchImagesList
+    val hashImagesList: LiveData<MutableList<MatchingImageDataItem>>
+        get() = _hashImagesList
 
-    fun addMatchingImagesToList(mList: MutableList<MatchingImageDataItem> = arrayListOf()) {
+    fun addHashImagesToList(mList: MutableList<MatchingImageDataItem> = arrayListOf()) {
 
-        _matchImagesList.postValue(mList)
+        _hashImagesList.postValue(mList)
     }
 
-    fun clearMatchingImageList() {
-        _matchImagesList.postValue(arrayListOf())
-    }
-
-    /*todo match images*/
+    /*todo duplicate images*/
     private val _duplicateImagesList =
         MutableLiveData<MutableList<MatchingImageDataItem>>(arrayListOf())
     val duplicateImagesList: LiveData<MutableList<MatchingImageDataItem>>
@@ -82,10 +71,6 @@ class HomeViewModel @Inject constructor(private val homeRepository: HomeReposito
     fun addDuplicateImagesToList(mList: MutableList<MatchingImageDataItem> = arrayListOf()) {
 
         _duplicateImagesList.postValue(mList)
-    }
-
-    fun clearDuplicateImageList() {
-        _duplicateImagesList.postValue(arrayListOf())
     }
 
     /*todo _measureProcessTime*/
@@ -108,7 +93,6 @@ class HomeViewModel @Inject constructor(private val homeRepository: HomeReposito
     fun addScreenShotToList(model: MatchingImageDataItem = MatchingImageDataItem()) {
 
         _screenShotList.value?.add(model)
-//        _imagesList.postValue(_imagesList.value)
     }
 
     fun addScreenShotToList(mList: MutableList<MatchingImageDataItem> = arrayListOf()) {
@@ -116,7 +100,7 @@ class HomeViewModel @Inject constructor(private val homeRepository: HomeReposito
         _screenShotList.postValue(mList)
     }
 
-    /*todo all screen recording*/
+    /*todo all screen-recording*/
     private val _screenRecordingList =
         MutableLiveData<MutableList<VideoDataItem>>(arrayListOf())
     val screenRecordingList: LiveData<MutableList<VideoDataItem>>
