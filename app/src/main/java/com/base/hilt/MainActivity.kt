@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
@@ -22,6 +23,8 @@ import com.base.hilt.databinding.ActivityMainBinding
 import com.base.hilt.extensions.getIntValue
 import com.base.hilt.extensions.hide
 import com.base.hilt.extensions.show
+import com.base.hilt.ui.composable.MyNavController
+import com.base.hilt.ui.theme.CleanerAppTheme
 import com.base.hilt.utils.Constants
 import com.base.hilt.utils.DataStoreUtil
 import com.base.hilt.utils.DebugLog
@@ -151,8 +154,15 @@ class MainActivity : AppCompatActivity() {
               }
           }*/
 
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+//        binding = ActivityMainBinding.inflate(layoutInflater)
+//        setContentView(binding.root)
+
+        setContent {
+            CleanerAppTheme {
+                MyNavController()
+            }
+        }
+
 //        handleGraphNavigation()
     }
 
