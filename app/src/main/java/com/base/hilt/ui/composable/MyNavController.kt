@@ -1,11 +1,10 @@
 package com.base.hilt.ui.composable
 
-import android.window.SplashScreen
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.base.hilt.ui.screen.Settings
+import com.base.hilt.ui.screen.settings.Settings
 import com.base.hilt.ui.screen.SplashScreen
 import com.base.hilt.utils.NavControllerConstant.SETTINGS
 import com.base.hilt.utils.NavControllerConstant.SPLASH_SCREEN

@@ -29,15 +29,15 @@ private val LightColorScheme = lightColorScheme(
 )*/
 
 private val DarkColorPalette = darkColors(
-    primary = shahen_app_color,
-    primaryVariant = shahen_app_color,
-    secondary = Teal200,
+    primary = PrimaryColor400,
+    primaryVariant = PrimaryColor500,
+    secondary = SecondaryColor200,
 )
 
 private val LightColorPalette = lightColors(
-    primary = shahen_app_color,
-    primaryVariant = shahen_app_color,
-    secondary = Teal200
+    primary = PrimaryColor400,
+    primaryVariant = PrimaryColor500,
+    secondary = SecondaryColor200
 
     /* Other default colors to override
     background = Color.White,

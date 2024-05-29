@@ -14,13 +14,9 @@ import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
-import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.setupWithNavController
 import com.base.hilt.base.LocaleManager
 import com.base.hilt.base.ToolbarModel
 import com.base.hilt.databinding.ActivityMainBinding
-import com.base.hilt.extensions.getIntValue
 import com.base.hilt.extensions.hide
 import com.base.hilt.extensions.show
 import com.base.hilt.ui.composable.MyNavController
@@ -29,7 +25,6 @@ import com.base.hilt.utils.Constants
 import com.base.hilt.utils.DataStoreUtil
 import com.base.hilt.utils.DebugLog
 import com.base.hilt.utils.Utils
-import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.util.*
